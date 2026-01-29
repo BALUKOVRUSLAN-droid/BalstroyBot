@@ -9,6 +9,8 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
+from aiohttp import web
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "566254565"))
@@ -30,182 +32,49 @@ class OrderStates(StatesGroup):
     waiting_material = State()
     waiting_phone = State()
 
-def get_main_menu():
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🏠 Все лестницы Авито", url=AVITO_URL)],
-        [InlineKeyboardButton(text="🎁 Акция -15% СЕЙЧАС", callback_data="sale")],
-        [InlineKeyboardButton(text="📐 КАЛЬКУЛЯТОР ЦЕНЫ", callback_data="calculator")],
-        [InlineKeyboardButton(text="📞 МЕНЕДЖЕР 15мин", callback_data="manager")],
-        [InlineKeyboardButton(text="👥 Отзывы 5⭐ (34)", url=CHANNEL_URL)]
-    ])
-
-def get_materials_kb():
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton("🔩 Металл+Дерево", callback_data="mat_metal_wood")],
-        [InlineKeyboardButton("🔩 Только Металл", callback_data="mat_metal")],
-        [InlineKeyboardButton("🌳 Только Дерево", callback_data="mat_wood")],
-        [InlineKeyboardButton("🔙 Главное меню", callback_data="back_main")]
-    ])
-
 @dp.message(Command("start"))
-async def start_command(message: types.Message):
-    await message.answer(
-        "🔨 <b>БАЛСТРОЙ | Лестницы под ключ</b>\n\n"
-        "✅ <b>34 отзыва 5⭐ на Авито</b>\n"
-        "✅ Металл+дерево от 25 000₽\n"
-        "✅ <b>СКИДКА 15% до 15 февраля</b>\n"
-        "✅ Доставка + монтаж\n\n"
-        "⚡ <b>Выберите действие:</b>", 
-        reply_markup=get_main_menu(),
-        parse_mode="HTML"
-    )
-
-@dp.callback_query(F.data == "sale")
-async def sale_callback(callback: types.CallbackQuery):
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton("💰 КАЛЬКУЛЯТОР СКИДКИ", callback_data="calculator")],
-        [InlineKeyboardButton("📞 ЗАКАЗАТЬ СКИДКУ", callback_data="manager")],
-        [InlineKeyboardButton("🏠 Все лестницы", url=AVITO_URL)]
+async def cmd_start(message: types.Message):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📞 Заказать лестницу", callback_data="order_stairs")],
+        [InlineKeyboardButton(text="📱 Связаться с менеджером", callback_data="contact_manager")],
+        [InlineKeyboardButton(text="🔗 Наш Avito", url=AVITO_URL)],
+        [InlineKeyboardButton(text="📢 Канал Балстрой", url=CHANNEL_URL)]
     ])
-    await callback.message.edit_text(
-        "🎉 <b>СУПЕР АКЦИЯ -15%!</b>\n\n"
-        "⏰ <b>До 15 февраля 2026</b>\n\n"
-        "💰 Прямые от 21 250₽ (было 25к)\n"
-        "💰 Винтовые от 38 250₽ (было 45к)\n\n"
-        "<b>⚡ Осталось 17 дней!</b>",
-        reply_markup=kb,
-        parse_mode="HTML"
-    )
-    await callback.answer()
-
-@dp.callback_query(F.data == "calculator")
-async def calculator_start(callback: types.CallbackQuery, state: FSMContext):
-    await state.set_state(OrderStates.waiting_height)
-    await callback.message.edit_text(
-        "📐 <b>КАЛЬКУЛЯТОР ЛЕСТНИЦЫ</b>\n\n"
-        "📏 Введите высоту проема (метры):\n"
-        "<i>Пример: 2.7 или 3.2</i>",
-        parse_mode="HTML"
-    )
-    await callback.answer()
-
-@dp.message(OrderStates.waiting_height)
-async def process_height(message: types.Message, state: FSMContext):
-    try:
-        height = float(message.text.replace(',', '.'))
-        await state.update_data(height=height)
-        await state.set_state(OrderStates.waiting_width)
-        await message.answer(
-            "📐 Ширина марша (метры):\n"
-            "<i>Пример: 1.0 или 1.2</i>",
-            parse_mode="HTML"
-        )
-    except:
-        await message.answer("❌ Введите число! Пример: 2.7")
-
-@dp.message(OrderStates.waiting_width)
-async def process_width(message: types.Message, state: FSMContext):
-    try:
-        width = float(message.text.replace(',', '.'))
-        await state.update_data(width=width)
-        await state.set_state(OrderStates.waiting_material)
-        await message.answer("🔩 Выберите материал:", reply_markup=get_materials_kb())
-    except:
-        await message.answer("❌ Введите число! Пример: 1.0")
-
-@dp.callback_query(F.data.startswith("mat_"))
-async def process_material(callback: types.CallbackQuery, state: FSMContext):
-    material = callback.data.split("_")[1]
-    await state.update_data(material=material)
-    await state.set_state(OrderStates.waiting_phone)
-    
-    data = await state.get_data()
-    price = data['height'] * data['width'] * 15000 * (1.2 if material == "metal_wood" else 1.0 if material == "metal" else 1.5)
-    
-    await callback.message.edit_text(
-        f"💰 <b>ПРЕДВАРИТЕЛЬНАЯ СМЕТА</b>\n\n"
-        f"📏 Высота: {data['height']}м\n"
-        f"📐 Ширина: {data['width']}м\n"
-        f"🔩 Материал: {material.replace('_','+').title()}\n\n"
-        f"💵 Стоимость: {price:,.0f} ₽\n"
-        f"🎁 <b>Со скидкой 15%: {price*0.85:,.0f} ₽</b>\n\n"
-        f"📞 Оставьте телефон для точного расчета:",
-        parse_mode="HTML"
-    )
-    await callback.answer()
-
-@dp.message(OrderStates.waiting_phone)
-async def process_phone(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    price = data['height'] * data['width'] * 15000 * (1.2 if data['material'] == "metal_wood" else 1.0 if data['material'] == "metal" else 1.5)
-    
-    cursor.execute("INSERT INTO leads VALUES (NULL, ?, ?, ?, ?, 'hot_lead', ?)", 
-                   (message.from_user.id, message.from_user.username or "no_name", message.text, str(data), datetime.now().isoformat()))
-    conn.commit()
-    
-    await bot.send_message(ADMIN_ID, 
-        f"🔥 <b>ГОРЯЧИЙ ЛИД!</b>\n\n"
-        f"👤 @{message.from_user.username or 'no_name'}\n"
-        f"🆔 {message.from_user.id}\n"
-        f"📏 {data['height']}x{data['width']}м\n"
-        f"🔩 {data['material'].replace('_','+')}\n"
-        f"💰 {price*0.85:,.0f}₽\n"
-        f"📞 {message.text}",
-        parse_mode="HTML"
-    )
-    
     await message.answer(
-        f"✅ <b>СМЕТА ОТПРАВЛЕНА!</b>\n\n"
-        f"📞 Менеджер перезвонит <b>за 15 минут</b>\n\n"
-        f"💰 <b>ИТОГО: {price*0.85:,.0f} ₽</b>",
-        reply_markup=get_main_menu(),
-        parse_mode="HTML"
+        "🏠 Добро пожаловать в Балстрой!\n\n"
+        "Мы изготавливаем лестницы любой сложности под ключ!\n\n"
+        "Выберите действие:", reply_markup=keyboard
     )
-    await state.clear()
 
-@dp.callback_query(F.data == "manager")
-async def manager_callback(callback: types.CallbackQuery):
-    cursor.execute("INSERT INTO leads VALUES (NULL, ?, ?, ?, ?, 'manager', ?)", 
-                   (callback.from_user.id, callback.from_user.username or "no_name", PHONE, "", datetime.now().isoformat()))
-    conn.commit()
-    
-    await bot.send_message(ADMIN_ID, 
-        f"📞 <b>ЗАЯВКА МЕНЕДЖЕР!</b>\n\n"
-        f"👤 @{callback.from_user.username or 'no_name'}\n"
-        f"🆔 {callback.from_user.id}\n"
-        f"📱 {PHONE}"
-    )
-    
-    await callback.message.edit_text(
-        f"✅ <b>ЗАЯВКА ПРИНЯТА!</b>\n\n"
-        f"📞 Перезвоню с <b>{PHONE}</b>\n"
-        f"⏰ Будни 9:00-21:00",
-        reply_markup=get_main_menu(),
-        parse_mode="HTML"
-    )
-    await callback.answer()
+async def on_startup(_):
+    webhook_url = f"https://{os.getenv('RENDER_EXTERNAL_URL')}/webhook"
+    print(f"🚀 Устанавливаем webhook: {webhook_url}")
+    await bot.set_webhook(webhook_url)
+    print("✅ Webhook установлен!")
 
-@dp.callback_query(F.data == "back_main")
-async def back_main(callback: types.CallbackQuery):
-    await callback.message.edit_text(
-        "🔨 <b>БАЛСТРОЙ | Главное меню</b>",
-        reply_markup=get_main_menu(),
-        parse_mode="HTML"
-    )
-    await callback.answer()
+async def on_shutdown(_):
+    print("🛑 Удаляем webhook...")
+    await bot.delete_webhook()
+    print("✅ Webhook удален!")
 
 async def main():
-    print("🚀 БАЛСТРОЙ БОТ 100% ГОТОВ!")
-    print(f"✅ Админ: {ADMIN_ID}")
-    print(f"✅ Телефон: {PHONE}")
-    print("📱 ИДИТЕ В TELEGRAM: /start")
-    await dp.start_polling(bot)
+    dp.startup.register(on_startup)
+    dp.shutdown.register(on_shutdown)
+    
+    app = web.Application()
+    SimpleRequestHandler(dispatcher=dp, bot=bot).register(app, path="/webhook")
+    setup_application(app, dp, bot=bot)
+    
+    port = int(os.getenv("PORT", 10000))
+    host = "0.0.0.0"
+    
+    print(f"🚀 Запуск сервера на {host}:{port}")
+    await web._run_app(app, host=host, port=port)
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    finally:
-        conn.close()
+    asyncio.run(main())
+
+
 
 
 
