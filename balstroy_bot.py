@@ -9,8 +9,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 
-BOT_TOKEN = "8482592973:AAFIT7Ebpp4YSR_IN_8Q9FwgkYVz4qrGvxY
-"
+BOT_TOKEN = "8482592973:AAFIT7Ebpp4YSR_IN_8Q9FwgkYVz4qrGvxY"
 ADMIN_ID = 566254565
 AVITO_URL = "https://www.avito.ru/brands/f707e786468e325dd4b7ada38832c0e7/all?sellerId=7e5f44c8bc596cfe2ac22cddcbc4475c"
 CHANNEL_URL = "https://t.me/balstroy10"
@@ -206,4 +205,5 @@ if __name__ == "__main__":
         asyncio.run(main())
     finally:
         conn.close()
+
 
