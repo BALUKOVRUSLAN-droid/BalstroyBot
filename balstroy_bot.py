@@ -1,4 +1,5 @@
 print("🚀 БАЛСТРОЙ ПРОДАЮЩИЙ БОТ!")
+import os
 import asyncio
 import sqlite3
 from datetime import datetime
@@ -9,11 +10,11 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 
-BOT_TOKEN = "8482592973:AAFIT7Ebpp4YSR_IN_8Q9FwgkYVz4qrGvxY"
-ADMIN_ID = 566254565
-AVITO_URL = "https://www.avito.ru/brands/f707e786468e325dd4b7ada38832c0e7/all?sellerId=7e5f44c8bc596cfe2ac22cddcbc4475c"
-CHANNEL_URL = "https://t.me/balstroy10"
-PHONE = "+7 906 206-53-50"
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_ID = int(os.getenv("ADMIN_ID", "566254565"))
+AVITO_URL = os.getenv("AVITO_URL", "https://www.avito.ru/brands/f707e786468e325dd4b7ada38832c0e7/all?sellerId=7e5f44c8bc596cfe2ac22cddcbc4475c")
+CHANNEL_URL = os.getenv("CHANNEL_URL", "https://t.me/balstroy10")
+PHONE = os.getenv("PHONE", "+7 906 206-53-50")
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
@@ -205,5 +206,6 @@ if __name__ == "__main__":
         asyncio.run(main())
     finally:
         conn.close()
+
 
 
