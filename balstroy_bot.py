@@ -46,13 +46,13 @@ async def cmd_start(message: types.Message):
         "Выберите действие:", reply_markup=keyboard
     )
 
-async def on_startup(_):
+async def on_startup(bot):
     webhook_url = f"https://{os.getenv('RENDER_EXTERNAL_URL')}/webhook"
     print(f"🚀 Устанавливаем webhook: {webhook_url}")
     await bot.set_webhook(webhook_url)
     print("✅ Webhook установлен!")
 
-async def on_shutdown(_):
+async def on_shutdown(bot):
     print("🛑 Удаляем webhook...")
     await bot.delete_webhook()
     print("✅ Webhook удален!")
@@ -73,9 +73,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-
-
-
-
