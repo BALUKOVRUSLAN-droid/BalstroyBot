@@ -1,6 +1,6 @@
 print("🚀 БАЛСТРОЙ ПРОДАЮЩИЙ БОТ!")
-import os
 import asyncio
+import os
 import sqlite3
 from datetime import datetime
 from aiogram import Bot, Dispatcher, types, F
@@ -206,6 +206,7 @@ if __name__ == "__main__":
         asyncio.run(main())
     finally:
         conn.close()
+
 
 
 
